@@ -1,74 +1,53 @@
-// app.js
-
-// ------- SERVICE WORKER REGISTRATION --------
+/* ========= 1. Service-worker registration ========= */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(registration => {
-        console.log('Service Worker Registered with scope:', registration.scope);
-      })
-      .catch(error => {
-        console.error('Service Worker registration failed:', error);
-      });
+    navigator.serviceWorker
+      .register('/Attendance_Scanner/service-worker.js') // path includes repo name
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.error('SW registration failed:', err));
   });
-} else {
-  console.log('Service Workers are not supported in this browser.');
 }
 
-// ------- QR CODE SCANNER SETUP --------
-// Make sure to include html5-qrcode library in your project and import accordingly
+/* ========= 2. Simple QR-scanner bootstrapping =========
+   Using html5-qrcode (add the CDN <script> tag *before* this file in prod) */
+const scanBtn   = document.getElementById('scan-btn');
+const todayCnt  = document.getElementById('today-count');
+const pendCnt   = document.getElementById('pending-count');
+const statusInd = document.getElementById('statusIndicator');
+const statusTxt = document.getElementById('statusText');
 
-// If using modules:
-// import { Html5Qrcode } from "html5-qrcode";
+let scansToday   = 0;
+let pendingQueue = 0;
+let scanner;
 
-// For non-module usage, include html5-qrcode.min.js in your HTML before this script
-
-// Initialize Html5Qrcode scanner
-const scanner = new Html5Qrcode("qr-reader");
-
-// Function to start scanning
-function startScanning() {
-  Html5Qrcode.getCameras()
-    .then(devices => {
-      if (devices && devices.length) {
-        const cameraId = devices[0].id;
-        scanner.start(
-          cameraId,
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          onScanSuccess,
-          onScanFailure
-        );
-      } else {
-        console.error("No cameras found.");
-      }
-    })
-    .catch(err => {
-      console.error("Error getting cameras:", err);
-    });
+/* --- fake online/offline status for demo --- */
+function setStatus(mode){
+  statusInd.className = 'status-indicator ' + mode + '-status';
+  statusTxt.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
 }
 
-// Function called on successful scan
-function onScanSuccess(decodedText, decodedResult) {
-  console.log(`QR Code scanned: ${decodedText}`);
-  processScannedData(decodedText);
-  // Optionally, stop scanning if only one scan is needed:
-  // scanner.stop();
+/* --- processing scanned code (placeholder) --- */
+function processScannedData(text){
+  scansToday++; todayCnt.textContent = scansToday;
+  pendingQueue++; pendCnt.textContent = pendingQueue;
+  console.log('Scanned:', text);
+  // TODO: save to IndexedDB & schedule background sync
 }
 
-// Function called on scan failure or no QR code detected in frame
-function onScanFailure(error) {
-  // You can log or ignore scanning errors/failures here.
-  // console.warn(`QR scan failed: ${error}`);
-}
-
-// Placeholder: Process scanned QR code data
-function processScannedData(scannedCode) {
-  // TODO: Parse scannedCode, validate student, save attendance record, etc.
-  console.log("Processing scanned data:", scannedCode);
-  // Example: Show feedback to user, store data locally, or trigger sync
-}
-
-// Hook up your "Start Scanning" button
-document.getElementById('scan-btn').addEventListener('click', () => {
-  startScanning();
+/* --- start camera + scanner --- */
+scanBtn.addEventListener('click', () => {
+  if (!scanner){ scanner = new Html5Qrcode('qr-reader'); }
+  Html5Qrcode.getCameras().then(devices=>{
+    if (!devices.length) return alert('No camera found');
+    const camId = devices[0].id;
+    scanner.start(camId,
+        { fps:10, qrbox:250 },
+        (decoded)=>{ scanner.stop(); processScannedData(decoded); },
+        err => {}); // ignore scan errors
+  });
 });
+
+/* ========= 3. Demo connectivity handlers ========= */
+window.addEventListener('online',  () => setStatus('online'));
+window.addEventListener('offline', () => setStatus('offline'));
+setStatus(navigator.onLine ? 'online' : 'offline');
