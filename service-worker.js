@@ -1,33 +1,34 @@
-// Install event
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open('attendance-v1').then(cache =>
-      cache.addAll([
-        '/',
-        '/index.html',
-        '/style.css',
-        '/app.js'
-      ])
+/* A minimal service worker that precaches core assets and
+   serves them from cache while offline. */
+
+const CACHE = 'attendance-scanner-v1';
+const CORE_ASSETS = [
+  '/Attendance_Scanner/',               // index.html
+  '/Attendance_Scanner/style.css',
+  '/Attendance_Scanner/app.js',
+  '/Attendance_Scanner/manifest.json',
+  '/Attendance_Scanner/icon-192.png',
+  '/Attendance_Scanner/icon-512.png'
+];
+
+self.addEventListener('install', evt => {
+  evt.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(CORE_ASSETS))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', evt => {
+  evt.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     )
   );
+  self.clients.claim();
 });
 
-// Background sync
-self.addEventListener('sync', event => {
-  if (event.tag === 'attendance-sync') {
-    event.waitUntil(syncAttendanceData());
-  }
+self.addEventListener('fetch', evt => {
+  evt.respondWith(
+    caches.match(evt.request).then(resp => resp || fetch(evt.request))
+  );
 });
-
-async function syncAttendanceData() {
-  // Get unsynced records and sync to Google Sheets
-  const records = await getUnsyncedRecords();
-  for (const record of records) {
-    try {
-      await syncToGoogleSheets(record);
-      await markAsSynced(record.id);
-    } catch (error) {
-      console.log('Sync failed, will retry');
-    }
-  }
-}
