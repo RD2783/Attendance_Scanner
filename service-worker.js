@@ -1,9 +1,6 @@
-/* A minimal service worker that precaches core assets and
-   serves them from cache while offline. */
-
 const CACHE = 'attendance-scanner-v1';
 const CORE_ASSETS = [
-  '/Attendance_Scanner/',               // index.html
+  '/Attendance_Scanner/',
   '/Attendance_Scanner/style.css',
   '/Attendance_Scanner/app.js',
   '/Attendance_Scanner/manifest.json',
